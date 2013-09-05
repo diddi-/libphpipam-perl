@@ -4,6 +4,7 @@ package phpIPAM;
 use strict;
 use Carp;
 use DBI;
+use Net::IP qw ( ip_is_ipv4 ip_is_ipv6 ip_bintoint ip_iptobin ip_get_version);
 use vars qw ( $VERSION );
 
 $VERSION = '0.1';
@@ -31,6 +32,12 @@ sub new {
         croak("This module only supports phpIPAM version $supported_phpIPAM (connected to version ".@{$version}[0]->{version}.")");
     }
     return $self;
+}
+
+sub DESTROY {
+    my $self = shift;
+
+    $self->_sqldisconnect();
 }
 
 sub _arg {
@@ -71,6 +78,14 @@ sub _sqlconnect {
     if(not $self->{DB}->{SOCK}) {
         croak("Unable to connect to ".$self->{CFG}->{DBUSER}."@".$self->{CFG}->{DBHOST}.":".$self->{CFG}->{DBPORT}.": ".$DBI::errstr."\n");
     }
+    return 0;
+}
+
+sub _sqldisconnect {
+    my $self = shift;
+
+    $self->{DB}->{SOCK}->disconnect();
+
     return 0;
 }
 
@@ -154,7 +169,10 @@ sub _delete {
 # Functions to get stuff from phpIPAM db  #
 ###########################################
 
-sub getSubnets {
+## getAllSubnets()
+# Return an array with hashes of all available subnets in phpIPAM db
+##
+sub getAllSubnets {
     my $self = shift;
 
     my $ret = $self->_select("SELECT id,subnet,mask,sectionID,description,vrfId FROM subnets");
@@ -162,9 +180,32 @@ sub getSubnets {
     return $ret;
 }
 
+## getIP()
+# Return a hash with information about a specific IP
+# Params:
+#   ip      - The ip address to return information about
+##
 sub getIP {
     my $self = shift;
-    return undef;
+    my $ip = $_[0];
+    my $netip;
+    if(not $ip) {
+        carp("Missing argument to getIP()\n");
+        return -1;
+    }
+
+    if(not($netip = Net::IP->new($ip))) {
+        carp("$ip is not a valid IP address\n");
+        return -1;
+    }
+
+    my $ret_ip = $self->_select("SELECT id,subnetId,description,dns_name,mac,owner,state,switch,port FROM ipaddresses where ip_addr = \"".$netip->intip()."\"");
+    if(not $ret_ip) {
+        # No results
+        return -1;
+    }
+
+    return $ret_ip;
 }
 
 1;
