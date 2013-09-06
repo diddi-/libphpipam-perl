@@ -1,14 +1,107 @@
+package phpipam;
 
-package phpIPAM;
+=head1 phpipam
 
+phpipam - Module to work with the phpIPAM (phpipam.net) database
+
+=head1 SYNOPSIS
+
+    #!/usr/bin/env perl
+
+    use strict;
+    use warnings;
+    use Data::Dumper;
+    use phpipam;
+
+    my $ipam = phpIPAM->new(
+        dbhost => 'localhost',
+        dbuser => 'phpipam',
+        dbpass => 'phpipam',
+        dbname => 'phpipam',
+        dbport => 3306,
+    );
+
+    if(not $ipam) {
+        print "ERROR could not create object\n";
+        return -1;
+    }
+
+    my $ret = $ipam->getAllSubnets();
+
+    print Dumper($ret);
+
+    my $ipv4 = $ipam->getIP("173.194.70.100");
+    print Dumper($ipv4);
+    my $ipv6 = $ipam->getIP("2a00:1450:4001:c02::66");
+    print Dumper($ipv6);
+    exit(0);
+
+
+=head1 DESCRIPTION
+
+phpipam is a helper module to retrieve information from the phpipam database (phpipam.net)
+
+=head2 EXPORT
+
+None by default.
+
+=head1 METHODS
+
+=cut
+
+use 5.018001;
 use strict;
+use warnings;
 use Carp;
 use DBI;
-use Net::IP qw ( ip_is_ipv4 ip_is_ipv6 ip_bintoint ip_iptobin ip_get_version);
-use vars qw ( $VERSION );
+use Net::IP;
 
-$VERSION = '0.1';
+require Exporter;
 
+our @ISA = qw(Exporter);
+
+# Items to export into callers namespace by default. Note: do not export
+# names by default without a very good reason. Use EXPORT_OK instead.
+# Do not simply export all your public functions/methods/constants.
+
+# This allows declaration	use phpipam ':all';
+# If you do not need this, moving things directly into @EXPORT or @EXPORT_OK
+# will save memory.
+our %EXPORT_TAGS = ( 'all' => [ qw(
+	
+) ] );
+
+our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
+
+our @EXPORT = qw(
+	
+);
+
+our $VERSION = '0.01';
+
+=head2 new()
+
+Calling new() with valid options will automatically try and connect to the phpIPAM database. If successful, a blessed object is returned to the user.
+
+    dbhost => [hostname|ip]     - DNS hostname or IP address (IPv4 or IPv6)
+                                  of the remote phpIPAM MySQL database.
+                                  ( Default: localhost )
+
+    dbport => port              - Port number to connect to (1-65535).
+                                  ( Default: 3306 )
+
+    dbuser => string            - Username to use when authenticating to the
+                                  MySQL database.
+                                  ( Default: phpipam )
+
+    dbpass => string            - Password to use when authenticating to the
+                                  MySQL database.
+                                  ( Default: phpipam )
+
+    dbname => string            - Name of the MySQL database where phpIPAM
+                                  stores all it's data.
+                                  ( Default: phpipam )
+=cut
 sub new {
 
     my $class = shift;
@@ -39,7 +132,6 @@ sub DESTROY {
 
     $self->_sqldisconnect();
 }
-
 sub _arg {
     my $self = shift;
     my $arg = shift;
@@ -80,7 +172,6 @@ sub _sqlconnect {
     }
     return 0;
 }
-
 sub _sqldisconnect {
     my $self = shift;
 
@@ -126,7 +217,6 @@ sub _insert {
 
     return $ra;
 }
-
 sub _update {
     my $self = shift;
     my $query = $_[0];
@@ -169,9 +259,26 @@ sub _delete {
 # Functions to get stuff from phpIPAM db  #
 ###########################################
 
-## getAllSubnets()
-# Return an array with hashes of all available subnets in phpIPAM db
-##
+=head2 getAllSubnets()
+
+Returns an array of hashes with each subnet stored in the database.
+This function does not care about sections and relations between subnets.
+
+    $phpipam->getAllSubnets();
+
+If successful, returns a data structure similar to the one below:
+    $VAR1 = [
+          {
+            'vrfId' => '0',
+            'description' => 'Sample Subnet',
+            'mask' => '16',
+            'id' => '29',
+            'subnet' => '176160768',
+            'sectionID' => '4'
+          },
+        ];
+Returns -1 if the query is unsuccessful for any reason.
+=cut
 sub getAllSubnets {
     my $self = shift;
 
@@ -180,11 +287,28 @@ sub getAllSubnets {
     return $ret;
 }
 
-## getIP()
-# Return a hash with information about a specific IP
-# Params:
-#   ip      - The ip address to return information about
-##
+=head2 getIP($ip)
+
+Returns a hash with information about a specific IP address.
+
+    $phpipam->getIP("173.194.70.100");
+
+If successful, returns a data structure similar to the one below:
+
+    $VAR1 = [
+          {
+            'description' => 'An IP Address description',
+            'id' => '92',
+            'port' => '',
+            'mac' => '',
+            'owner' => 'Admin',
+            'subnetId' => '29',
+            'switch' => '',
+            'state' => '1',
+            'dns_name' => 'dns.as.seen.in.the.database.com'
+          }
+        ];
+=cut
 sub getIP {
     my $self = shift;
     my $ip = $_[0];
@@ -208,4 +332,23 @@ sub getIP {
     return $ret_ip;
 }
 
+
 1;
+__END__
+=head1 SEE ALSO
+
+phpIPAM official homepage - http://phpipam.net
+
+=head1 AUTHOR
+
+Diddi Oscarsson, E<lt>diddi@diddi.seE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2013 by Diddi Oscarsson
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself, either Perl version 5.18.1 or,
+at your option, any later version of Perl 5 you may have available.
+
+
