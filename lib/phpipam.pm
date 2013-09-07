@@ -255,6 +255,17 @@ sub _delete {
     return $ra;
 }
 
+sub _escape {
+    my $self = shift;
+    my $q = $_[0];
+
+    $q =~ s/'/\'/g;
+    $q =~ s/--/\-\-/g;
+    $q =~ s/\\/\\\\/g;
+
+    return $q;
+}
+
 ###########################################
 # Functions to get stuff from phpIPAM db  #
 ###########################################
@@ -332,7 +343,33 @@ sub getIP {
     return $ret_ip;
 }
 
+=head2 getAddresses($section, $subnet)
 
+Returns an array of hashes with information about a all addresses in a given subnet.
+
+    $phpipam->getAddresses("server", "10.0.0.0/8");
+=cut
+
+sub getAddresses {
+    my $self = shift;
+    my $section = shift;
+    my $subnet = shift;
+
+    if(not $section or not $subnet) {
+        carp("Missing argument to getSubnet()");
+        return undef;
+    }
+
+    my $netip = Net::IP->new($subnet);
+    if(not $netip) {
+        carp("$subnet is not a valid subnet");
+        return undef;
+    }
+
+    my $subnets = $self->_select("select * from ipaddresses where subnetId = (select subnets.id from subnets where subnets.subnet = ".$self->_escape($netip->intip)." and subnets.mask = ".$self->_escape($netip->prefixlen)." and sectionId=(select sections.id from sections where sections.name=\"".$self->_escape($section)."\"))");
+
+    return $subnets;
+}
 1;
 __END__
 =head1 SEE ALSO
