@@ -366,7 +366,20 @@ sub getAddresses {
         return undef;
     }
 
-    my $subnets = $self->_select("select * from ipaddresses where subnetId = (select subnets.id from subnets where subnets.subnet = ".$self->_escape($netip->intip)." and subnets.mask = ".$self->_escape($netip->prefixlen)." and sectionId=(select sections.id from sections where sections.name=\"".$self->_escape($section)."\"))");
+    my $ipam_section = $self->_select("SELECT id FROM sections WHERE name = \"".$self->_escape($section)."\"");
+    if(not $ipam_section or @{$ipam_section} == 0) {
+        carp("$section: No such section name found in database");
+        return undef;
+    }
+
+    my $ipam_subnet = $self->_select("SELECT id FROM subnets WHERE subnet = ".$self->_escape($netip->intip)." AND mask = ".$self->_escape($netip->prefixlen)." AND sectionId = ".$self->_escape(@{$ipam_section}[0]->{'id'}));
+
+    if(not $ipam_subnet or @{$ipam_subnet} == 0) {
+        carp("$subnet: No such subnet found in database");
+        return undef;
+    }
+
+    my $subnets = $self->_select("select * from ipaddresses where subnetId = ".$self->_escape(@{$ipam_subnet}[0]->{'id'}));
 
     return $subnets;
 }
