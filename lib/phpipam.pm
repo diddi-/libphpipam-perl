@@ -343,43 +343,92 @@ sub getIP {
     return $ret_ip;
 }
 
-=head2 getAddresses($section, $subnet)
+=head2 getAddresses(%opts)
 
-Returns an array of hashes with information about a all addresses in a given subnet.
+Returns an array of hashes with information about a all addresses within a specific
+Section, VRF or subnet based on the given options
 
-    $phpipam->getAddresses("server", "10.0.0.0/8");
+    section => string           - Section name as stored in the database.
+                                  Section names are case sensitive.
+
+    subnet => CIDR              - IPv4 or IPv6 CIDR as stored in the database.
+                                  NOTE: phpipam does not do any calculations
+                                  on subnets, a subnet must exactly match what's in
+                                  the database.
+
+    vrf => [name|RD]            - Name or Route-Distinguisher of the VRF to search in.
+
+All options are optional, getAddresses will try its best to match addresses only found
+within the section, subnet or vrf.
+
+    $phpipam->getAddresses({section => "server", subnet => "10.0.0.0/8"});
+    $phpipam->getAddresses({subnet => "172.16.0.0/24", vrf => "TestVRF"});
+
+By default, getAddresses return all addresses of all sections and subnets if no options
+are given.
 =cut
 
 sub getAddresses {
     my $self = shift;
-    my $section = shift;
-    my $subnet = shift;
+    my $opts = shift;
+    my $netip = undef;
+    my $section = $opts->{section} ||= undef;
+    my $vrf = $opts->{vrf} ||= undef;
+    my $ipam_section = undef;
+    my $ipam_subnet = undef;
+    my $ipam_vrf = undef;
 
-    if(not $section or not $subnet) {
-        carp("Missing argument to getSubnet()");
-        return undef;
+    if($opts->{subnet}) {
+        $netip = Net::IP->new($opts->{subnet});
+        if(not $netip) {
+            carp($opts->{subnet} ."is not a valid subnet");
+            return undef;
+        }
     }
 
-    my $netip = Net::IP->new($subnet);
-    if(not $netip) {
-        carp("$subnet is not a valid subnet");
-        return undef;
+    if($section) {
+
+        $ipam_section = $self->_select("SELECT id,name FROM sections WHERE name = \"".$self->_escape($section)."\"");
+        if(not $ipam_section or @{$ipam_section} == 0) {
+            carp("$section: No such section name found in database");
+            return undef;
+        }
     }
 
-    my $ipam_section = $self->_select("SELECT id FROM sections WHERE name = \"".$self->_escape($section)."\"");
-    if(not $ipam_section or @{$ipam_section} == 0) {
-        carp("$section: No such section name found in database");
-        return undef;
+    if($vrf) {
+        my $q = "SELECT vrfId,name FROM vrf WHERE name = \"".$self->_escape($vrf)."\" OR rd = \"".$self->_escape($vrf)."\"";
+        $ipam_vrf = $self->_select($q);
+
+        if(not $ipam_vrf) {
+            carp("$vrf: No matching VRF found in database");
+            return undef;
+        }
     }
 
-    my $ipam_subnet = $self->_select("SELECT id FROM subnets WHERE subnet = ".$self->_escape($netip->intip)." AND mask = ".$self->_escape($netip->prefixlen)." AND sectionId = ".$self->_escape(@{$ipam_section}[0]->{'id'}));
+    my $s_query = "SELECT id FROM subnets";
+    my @subnet_where;
+    push(@subnet_where, "subnet = ".$self->_escape($netip->intip)." AND mask = ".$self->_escape($netip->prefixlen)) if $netip;
+    push(@subnet_where, "sectionId = ".$self->_escape(@{$ipam_section}[0]->{'id'})) if $section;
+    push(@subnet_where, "vrfId = ".$self->_escape(@{$ipam_vrf}[0]->{'vrfId'})) if $vrf;
+
+    for (my $i=0; $i < @subnet_where; $i++) {
+        $s_query .= $i ? " AND " : " WHERE ";
+        $s_query .= $subnet_where[$i];
+    }
+
+    $ipam_subnet = $self->_select($s_query);
 
     if(not $ipam_subnet or @{$ipam_subnet} == 0) {
-        carp("$subnet: No such subnet found in database");
+        carp("No matching subnets found");
         return undef;
     }
 
-    my $subnets = $self->_select("select * from ipaddresses where subnetId = ".$self->_escape(@{$ipam_subnet}[0]->{'id'}));
+    my $q = "SELECT * FROM ipaddresses";
+    $q .= " WHERE subnetId = ".(shift(@{$ipam_subnet}))->{'id'} if @{$ipam_subnet};
+    foreach my $s (@{$ipam_subnet}) {
+        $q .= " OR subnetId = ".$s->{'id'};
+    }
+    my $subnets = $self->_select($q);
 
     return $subnets;
 }
