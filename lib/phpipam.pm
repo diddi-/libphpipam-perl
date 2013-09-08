@@ -384,6 +384,22 @@ sub getAllVrfs {
     return $ret;
 }
 
+=head2 getSiteTitle
+
+Returns the site Title (what you see in the phpIPAM banner after logging in).
+
+    $phpipam->getSiteTitle();
+
+=cut
+
+sub getSiteTitle {
+    my $self = shift;
+
+    my $title = $self->_select("SELECT siteTitle FROM settings");
+
+    return @{$title}[0]->{siteTitle};
+}
+
 =head2 getIP($ip)
 
 Returns a hash with information about a specific IP address.
