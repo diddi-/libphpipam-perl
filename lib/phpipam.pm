@@ -606,6 +606,7 @@ sub getAddresses {
     my $netip = undef;
     my $section = $opts->{section} ||= undef;
     my $vrf = $opts->{vrf} ||= undef;
+    my $strict = $opts->{strict} ||= undef;
     my $ipam_section = undef;
     my $ipam_subnet = undef;
     my $ipam_vrf = undef;
@@ -641,6 +642,7 @@ sub getAddresses {
     push(@subnet_where, "subnet = ".$self->_escape($netip->intip)." AND mask = ".$self->_escape($netip->prefixlen)) if $netip;
     push(@subnet_where, "sectionId = ".$self->_escape(@{$ipam_section}[0]->{'id'})) if $section;
     push(@subnet_where, "vrfId = ".$self->_escape(@{$ipam_vrf}[0]->{'vrfId'})) if $vrf;
+    push(@subnet_where, "vrfId = 0") if $strict and not $vrf;
 
     for (my $i=0; $i < @subnet_where; $i++) {
         $s_query .= $i ? " AND " : " WHERE ";
