@@ -298,6 +298,89 @@ sub getAllSubnets {
     return $ret;
 }
 
+=head2 getSubnets(%opts)
+
+Returns an array of hashes with each subnet within a section and/or vrf.
+
+    $phpipam->getSubnets({vrf => "testvrf", section => "Servers");
+
+Note that phpIPAM does not yet have any uniqueness checking on VRFs. This means
+that multiple VRFs with the same name and the same RD may exist at the same time
+within the phpIPAM database.
+If 'vrf' is given as an option, getSubnets() will return the subnets from the first VRF
+it matches in the database, all other VRFs are silently ignored.
+
+If no options are given, getSubnets() behave just as getAllSubnets() do.
+=cut
+sub getSubnets {
+    my $self = shift;
+    my $opts = shift;
+    my $section = $opts->{section} ||= undef;
+    my $vrf = $opts->{vrf} ||= undef;
+
+    if($section) {
+        $ipam_section = $self->_select("SELECT id,name FROM sections WHERE name = \"".$self->_escape($section)."\"");
+        if(not $ipam_section or @{$ipam_section} == 0) {
+            carp("$section: No such section name found in database");
+            return undef;
+        }
+    }
+
+    if($vrf) {
+        my $q = "SELECT vrfId,name FROM vrf WHERE name = \"".$self->_escape($vrf)."\" OR rd = \"".$self->_escape($vrf)."\"";
+        $ipam_vrf = $self->_select($q);
+
+        if(not $ipam_vrf) {
+            carp("$vrf: No matching VRF found in database");
+            return undef;
+        }
+    }
+
+    my $s_query = "SELECT * FROM subnets";
+    my @subnet_where;
+    push(@subnet_where, "sectionId = ".$self->_escape(@{$ipam_section}[0]->{'id'})) if $section;
+    push(@subnet_where, "vrfId = ".$self->_escape(@{$ipam_vrf}[0]->{'vrfId'})) if $vrf;
+
+    for (my $i=0; $i < @subnet_where; $i++) {
+        $s_query .= $i ? " AND " : " WHERE ";
+        $s_query .= $subnet_where[$i];
+    }
+
+    $ipam_subnet = $self->_select($s_query);
+
+    return $ipam_subnet;
+}
+
+=head2 getAllSections()
+
+Returns an array of hashes with each section stored in the database.
+
+    $phpipam->getAllSections();
+
+=cut
+sub getAllSections {
+    my $self = shift;
+
+    my $ret = $self->_select("SELECT * FROM sections");
+
+    return $ret;
+}
+
+=head2 getAllVrfs()
+
+Returns an array of hashes with each VRF stored in the database.
+
+    $phpipam->getAllVrfs();
+
+=cut
+sub getAllVrfs {
+    my $self = shift;
+
+    my $ret = $self->_select("SELECT * FROM vrf");
+
+    return $ret;
+}
+
 =head2 getIP($ip)
 
 Returns a hash with information about a specific IP address.
@@ -387,7 +470,6 @@ sub getAddresses {
     }
 
     if($section) {
-
         $ipam_section = $self->_select("SELECT id,name FROM sections WHERE name = \"".$self->_escape($section)."\"");
         if(not $ipam_section or @{$ipam_section} == 0) {
             carp("$section: No such section name found in database");
