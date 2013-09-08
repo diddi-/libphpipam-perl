@@ -317,6 +317,9 @@ sub getSubnets {
     my $opts = shift;
     my $section = $opts->{section} ||= undef;
     my $vrf = $opts->{vrf} ||= undef;
+    my $ipam_section = undef;
+    my $ipam_vrf = undef;
+    my $ipam_subnet = undef;
 
     if($section) {
         $ipam_section = $self->_select("SELECT id,name FROM sections WHERE name = \"".$self->_escape($section)."\"");
@@ -424,6 +427,83 @@ sub getIP {
     }
 
     return $ret_ip;
+}
+
+=head2 getSubnet(%opts)
+
+Return an array of hashes with information about the subnet(s) within the
+given section and/or vrf.
+Options are
+
+    section => string           - Section name as stored in the database.
+                                  Section names are case sensitive.
+
+    subnet => CIDR              - IPv4 or IPv6 CIDR as stored in the database.
+                                  NOTE: phpipam does not do any calculations
+                                  on subnets, a subnet must exactly match what's in
+                                  the database.
+                                  This argument is MANDATORY.
+
+    vrf => [name|RD]            - Name or Route-Distinguisher of the VRF to search in.
+
+    $phpipam->getSubnet("192.168.0.0/24");
+
+If more than one subnet is found (which is likely if no section or vrf is given),
+getSubnet() will return an array with all subnets found.
+=cut
+sub getSubnet {
+    my $self = shift;
+    my $opts = shift;
+    my $subnet = $opts->{subnet} ||= undef;
+    my $section = $opts->{section} ||= undef;
+    my $vrf = $opts->{vrf} ||= undef;
+    my $ipam_section = undef;
+    my $ipam_vrf = undef;
+    my $ipam_subnet = undef;
+
+    if(not $subnet) {
+        carp("Missing mandatory option 'subnet'");
+        return undef;
+    }
+
+    my $netip = Net::IP->new($subnet);
+    if(not $netip) {
+        carp("$subnet is not a valid subnet");
+        return undef;
+    }
+
+    if($section) {
+        $ipam_section = $self->_select("SELECT id,name FROM sections WHERE name = \"".$self->_escape($section)."\"");
+        if(not $ipam_section or @{$ipam_section} == 0) {
+            carp("$section: No such section name found in database");
+            return undef;
+        }
+    }
+
+    if($vrf) {
+        my $q = "SELECT vrfId,name FROM vrf WHERE name = \"".$self->_escape($vrf)."\" OR rd = \"".$self->_escape($vrf)."\"";
+        $ipam_vrf = $self->_select($q);
+
+        if(not $ipam_vrf) {
+            carp("$vrf: No matching VRF found in database");
+            return undef;
+        }
+    }
+
+    my $s_query = "SELECT * FROM subnets";
+    my @subnet_where;
+    push(@subnet_where, "subnet = ".$self->_escape($netip->intip)." AND mask = ".$self->_escape($netip->prefixlen));
+   push(@subnet_where, "sectionId = ".$self->_escape(@{$ipam_section}[0]->{'id'})) if $section;
+    push(@subnet_where, "vrfId = ".$self->_escape(@{$ipam_vrf}[0]->{'vrfId'})) if $vrf;
+
+    for (my $i=0; $i < @subnet_where; $i++) {
+        $s_query .= $i ? " AND " : " WHERE ";
+        $s_query .= $subnet_where[$i];
+    }
+
+    $ipam_subnet = $self->_select($s_query);
+
+    return $ipam_subnet;
 }
 
 =head2 getAddresses(%opts)
