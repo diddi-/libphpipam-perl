@@ -506,6 +506,50 @@ sub getSubnet {
     return $ipam_subnet;
 }
 
+=head2 getVrf([$vrf|$rd])
+
+Returns a single-element array with a hash containing all information about the given vrf.
+
+    $phpipam->getVrf("testvrf");
+    $phpipam->getVrf("123:123");
+
+If more than one VRF is found with the given name, only the first match is returned.
+getVrf() matches on name first, then RD. This means that if one VRF is stored in the database,
+and another VRF is stored with an RD being the same as the first VRF name - trying to find
+the VRF using RD can be quite difficult.
+
+Consider this
+    VRF1
+        Name: 123:123
+        RD:   weird-RD
+
+    VRF2
+        Name: AnotherVRF
+        RD:   123:123
+
+    $phpipam->getVrf("123:123");
+
+In the above example, getVrf() will return only information about VRF1. If you want to be able to
+distinguish between the VRFs, make sure that names and RDs do not collide in the database.
+=cut
+sub getVrf {
+    my $self = shift;
+    my $vrf = shift;
+
+    if(not $vrf) {
+        carp("Missing mandatory argument 'vrf' to getVrf()");
+        return undef;
+    }
+
+    my $ipam_vrf = $self->_select("SELECT * FROM vrf WHERE name = '".$self->_escape($vrf)."' OR rd = '".$self->_escape($vrf)."'");
+    if(not $ipam_vrf or @{$ipam_vrf} == 0) {
+        carp("$vrf: No such VRF found in the database");
+        return undef;
+    }
+
+    return [@{$ipam_vrf}[0]]; # Yep, this ain't pretty but it'll go for now.
+}
+
 =head2 getAddresses(%opts)
 
 Returns an array of hashes with information about a all addresses within a specific
