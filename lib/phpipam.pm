@@ -550,6 +550,31 @@ sub getVrf {
     return [@{$ipam_vrf}[0]]; # Yep, this ain't pretty but it'll go for now.
 }
 
+=head2 getSection($section)
+
+Returns a single-element array with a hash containing all information about the given section.
+
+    $phpipam->getSection("TestSection");
+
+=cut
+sub getSection {
+    my $self = shift;
+    my $section = shift;
+
+    if(not $section) {
+        carp("Missing mandatory argument 'section' to getSection()");
+        return undef;
+    }
+
+    my $ipam_section = $self->_select("SELECT * FROM sections WHERE name = '".$self->_escape($section)."'");
+    if(not $ipam_section or @{$ipam_section} == 0) {
+        carp("$section: No such section found in the database");
+        return undef;
+    }
+
+    return [@{$ipam_section}[0]]; # Yep, this ain't pretty but it'll go for now.
+}
+
 =head2 getAddresses(%opts)
 
 Returns an array of hashes with information about a all addresses within a specific
