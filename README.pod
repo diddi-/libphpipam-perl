@@ -1,5 +1,3 @@
-package phpipam;
-
 =head1 phpipam
 
 phpipam - Module to work with the phpIPAM (phpipam.net) database
@@ -65,38 +63,6 @@ phpipam is a helper module to retrieve information from the phpipam database (ph
 None by default.
 
 =head1 METHODS
-
-=cut
-
-use 5.018001;
-use strict;
-use warnings;
-use Carp;
-use DBI;
-use Net::IP;
-
-require Exporter;
-
-our @ISA = qw(Exporter);
-
-# Items to export into callers namespace by default. Note: do not export
-# names by default without a very good reason. Use EXPORT_OK instead.
-# Do not simply export all your public functions/methods/constants.
-
-# This allows declaration	use phpipam ':all';
-# If you do not need this, moving things directly into @EXPORT or @EXPORT_OK
-# will save memory.
-our %EXPORT_TAGS = ( 'all' => [ qw(
-	
-) ] );
-
-our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
-
-our @EXPORT = qw(
-	
-);
-
-our $VERSION = '0.01';
 
 =head2 new()
 
@@ -379,45 +345,17 @@ Returns an array of hashes with each section stored in the database.
 
     $phpipam->getAllSections();
 
-=cut
-sub getAllSections {
-    my $self = shift;
-
-    my $ret = $self->_select("SELECT * FROM sections");
-
-    return $ret;
-}
-
 =head2 getAllVrfs()
 
 Returns an array of hashes with each VRF stored in the database.
 
     $phpipam->getAllVrfs();
 
-=cut
-sub getAllVrfs {
-    my $self = shift;
-
-    my $ret = $self->_select("SELECT * FROM vrf");
-
-    return $ret;
-}
-
 =head2 getSiteTitle
 
 Returns the site Title (what you see in the phpIPAM banner after logging in).
 
     $phpipam->getSiteTitle();
-
-=cut
-
-sub getSiteTitle {
-    my $self = shift;
-
-    my $title = $self->_select("SELECT siteTitle FROM settings");
-
-    return @{$title}[0]->{siteTitle};
-}
 
 =head2 getIP($ip)
 
@@ -591,25 +529,6 @@ Returns a single-element array with a hash containing all information about the 
 
     $phpipam->getSection("TestSection");
 
-=cut
-sub getSection {
-    my $self = shift;
-    my $section = shift;
-
-    if(not $section) {
-        carp("Missing mandatory argument 'section' to getSection()");
-        return undef;
-    }
-
-    my $ipam_section = $self->_select("SELECT * FROM sections WHERE name = '".$self->_escape($section)."'");
-    if(not $ipam_section or @{$ipam_section} == 0) {
-        carp("$section: No such section found in the database");
-        return undef;
-    }
-
-    return [@{$ipam_section}[0]]; # Yep, this ain't pretty but it'll go for now.
-}
-
 =head2 getAddresses(%opts)
 
 Returns an array of hashes with information about a all addresses within a specific
@@ -734,4 +653,3 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-=cut
