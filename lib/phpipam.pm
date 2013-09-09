@@ -529,7 +529,7 @@ sub getSubnet {
 
     my $s_query = "SELECT * FROM subnets";
     my @subnet_where;
-    push(@subnet_where, "subnet = ".$self->_escape($netip->intip)." AND mask = ".$self->_escape($netip->prefixlen));
+    push(@subnet_where, "subnet = '".$self->_escape($netip->intip)."' AND mask = ".$self->_escape($netip->prefixlen));
    push(@subnet_where, "sectionId = ".$self->_escape(@{$ipam_section}[0]->{'id'})) if $section;
     push(@subnet_where, "vrfId = ".$self->_escape(@{$ipam_vrf}[0]->{'vrfId'})) if $vrf;
 
@@ -676,7 +676,7 @@ sub getAddresses {
 
     my $s_query = "SELECT id FROM subnets";
     my @subnet_where;
-    push(@subnet_where, "subnet = ".$self->_escape($netip->intip)." AND mask = ".$self->_escape($netip->prefixlen)) if $netip;
+    push(@subnet_where, "subnet = '".$self->_escape($netip->intip)."' AND mask = ".$self->_escape($netip->prefixlen)) if $netip;
     push(@subnet_where, "sectionId = ".$self->_escape(@{$ipam_section}[0]->{'id'})) if $section;
     push(@subnet_where, "vrfId = ".$self->_escape(@{$ipam_vrf}[0]->{'vrfId'})) if $vrf;
     push(@subnet_where, "vrfId = 0") if $strict and not $vrf;
