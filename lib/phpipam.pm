@@ -670,6 +670,8 @@ sub getAddresses {
     if((not $ipam_subnet or @{$ipam_subnet} == 0) and $netip) {
         carp("No matching subnets found");
         return undef;
+    }elsif(not $ipam_subnet or @{$ipam_subnet} == 0) {
+        return [];
     }
 
     my $q = "SELECT * FROM ipaddresses";
