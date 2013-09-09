@@ -667,7 +667,7 @@ sub getAddresses {
 
     $ipam_subnet = $self->_select($s_query);
 
-    if(not $ipam_subnet or @{$ipam_subnet} == 0) {
+    if((not $ipam_subnet or @{$ipam_subnet} == 0) and $netip) {
         carp("No matching subnets found");
         return undef;
     }
