@@ -336,6 +336,7 @@ sub getSubnets {
     my $opts = shift;
     my $section = $opts->{section} ||= undef;
     my $vrf = $opts->{vrf} ||= undef;
+    my $strict = $opts->{strict} ||= undef;
     my $ipam_section = undef;
     my $ipam_vrf = undef;
     my $ipam_subnet = undef;
@@ -362,6 +363,7 @@ sub getSubnets {
     my @subnet_where;
     push(@subnet_where, "sectionId = ".$self->_escape(@{$ipam_section}[0]->{'id'})) if $section;
     push(@subnet_where, "vrfId = ".$self->_escape(@{$ipam_vrf}[0]->{'vrfId'})) if $vrf;
+    push(@subnet_where, "vrfId = 0") if $strict and not $vrf;
 
     for (my $i=0; $i < @subnet_where; $i++) {
         $s_query .= $i ? " AND " : " WHERE ";
