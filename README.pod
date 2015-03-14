@@ -544,6 +544,9 @@ Section, VRF or subnet based on the given options
 
     vrf => [name|RD]            - Name or Route-Distinguisher of the VRF to search in.
 
+    filter => {key => value}    - Where key is the database column name. Filters addresses
+                                  that only matches the filter.
+
 All options are optional, getAddresses will try its best to match addresses only found
 within the section, subnet or vrf.
 

@@ -126,8 +126,6 @@ sub new {
     my $class = shift;
     my $self = {};
 
-    my $supported_phpIPAM = "0.8";
-
     bless($self, $class);
 
     my (%args) = @_;
@@ -140,9 +138,6 @@ sub new {
     $self->{CFG}->{DBNAME}          = $self->_arg("dbname", "phpipam");
 
     my $version = $self->_select("SELECT version FROM settings");
-    if(not @{$version}[0]->{version} eq $supported_phpIPAM) {
-        croak("This module only supports phpIPAM version $supported_phpIPAM (connected to version ".@{$version}[0]->{version}.")");
-    }
     return $self;
 }
 
@@ -644,9 +639,11 @@ sub getAddresses {
     my $section = $opts->{section} ||= undef;
     my $vrf = $opts->{vrf} ||= undef;
     my $strict = $opts->{strict} ||= undef;
+    my $filter = $opts->{filter} ||= undef;
     my $ipam_section = undef;
     my $ipam_subnet = undef;
     my $ipam_vrf = undef;
+    my @address_filter;
 
     if($opts->{subnet}) {
         $netip = Net::IP->new($opts->{subnet});
@@ -681,6 +678,12 @@ sub getAddresses {
     push(@subnet_where, "vrfId = ".$self->_escape(@{$ipam_vrf}[0]->{'vrfId'})) if $vrf;
     push(@subnet_where, "vrfId = 0") if $strict and not $vrf;
 
+    if(defined $filter) {
+      foreach my $k (keys(%{$filter})) {
+        push(@address_filter, $self->_escape($k)." = '".$self->_escape($filter->{$k})."'");
+      }
+    }
+
     for (my $i=0; $i < @subnet_where; $i++) {
         $s_query .= $i ? " AND " : " WHERE ";
         $s_query .= $subnet_where[$i];
@@ -696,10 +699,17 @@ sub getAddresses {
     }
 
     my $q = "SELECT * FROM ipaddresses";
-    $q .= " WHERE subnetId = ".(shift(@{$ipam_subnet}))->{'id'} if @{$ipam_subnet};
+    $q .= " WHERE (subnetId = ".(shift(@{$ipam_subnet}))->{'id'} if @{$ipam_subnet};
     foreach my $s (@{$ipam_subnet}) {
         $q .= " OR subnetId = ".$s->{'id'};
     }
+    $q .= ")";
+
+    for (my $i=0; $i < @address_filter; $i++) {
+        $q .= " AND ";
+        $q .= $address_filter[$i];
+    }
+
     my $subnets = $self->_select($q);
 
     return $subnets;
